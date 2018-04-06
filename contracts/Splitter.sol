@@ -1,94 +1,75 @@
-pragma solidity ^0.4.17;
+pragma solidity ^ 0.4.17;
 
-contract Splitter{
+contract Splitter {
 
-    struct UserStruct {
-        address userAddress;
-        string  name;
-        uint    amount;
+  address public owner;
+  mapping(address => uint) public balances;
+  address[] public recipientIndex;
+
+  event LogLogger(string data);
+  event LogSplitter(address initiater, string action, address receiver,
+                    uint amount);
+
+  function Splitter() public { owner = msg.sender; }
+
+  function splitFunds(address _recipient1, address _recipient2) public payable
+  returns(bool) {
+    require(owner == msg.sender);
+    require(msg.value > 0);
+    if (!isRecipientsValid(_recipient1, _recipient2)) {
+      LogLogger("LOG: Recipient invalid return");
+      revert(); // ISSUE: revert() failing
+      return false;
     }
 
-    string  public _ownerName;
-    address  public _ownerAddress;
+    uint amountHalf = msg.value / 2;
+    uint remainder = msg.value % 2;
 
-    //TODO: Check array can be replaced with map to avoid looping
-    UserStruct[] public _usersStruct;
-
-    function  Splitter(string ownerName, 
-    string user1Name, address user1Address, 
-    string user2Name, address user2Address) 
-    public {
-        _ownerName = ownerName;
-        _ownerAddress = msg.sender;
-        UserStruct memory newUser1;
-        newUser1.userAddress = user1Address;
-        newUser1.name = user1Name;
-        _usersStruct.push(newUser1);
-
-        UserStruct memory newUser2;
-        newUser2.userAddress = user2Address;
-        newUser2.name = user2Name;
-        _usersStruct.push(newUser2);
-    }
-
-    function split() public payable returns(bool)
-    {
-        if(msg.value==0) require(false);
-        uint amountHalf = msg.value/2;
-        _usersStruct[0].amount += amountHalf;
-        _usersStruct[1].amount += amountHalf;
-        if(!checkEven(msg.value))
-        {
-            if(_usersStruct[0].amount > _usersStruct[1].amount)
-            {
-                _usersStruct[1].amount += 1;
-            }
-            else
-            {
-                _usersStruct[0].amount += 1;
-            }
-        }
-        return true;
-    }
-
-    function checkEven(uint value) pure private returns(bool)
-    {
-        if(value%2 == 0)
-            return true;
-        else
-            return false;    
-    } 
-
-    function performTransfer() public returns(bool) {
-        uint size = _usersStruct.length;
-        for(uint count=0; count < size; count++)
-        {
-            _usersStruct[count].userAddress.transfer(_usersStruct[count].amount);
-        }
-        return true;
-    }
-
-    function getOwnerName() public view returns(string name){
-        name = _ownerName;
-    }
-
-    function getOwnerAddress() public view returns(address ownerAddress){
-        ownerAddress = _ownerAddress;
-    }
-
-    function getUserAmount(address userAddress) public view returns(uint amount){
-        uint size = _usersStruct.length;
-        for(uint count=0; count < size; count++)
-        {
-            if(_usersStruct[count].userAddress == userAddress)
-                amount = _usersStruct[count].amount;
-        }
-    }
-
-    function killMe() public returns (bool) {
-    require(msg.sender == _ownerAddress);
-    selfdestruct(_ownerAddress);
+    balances[_recipient1] += amountHalf;
+    LogSplitter(owner, "Splitter: Add fund to ", _recipient1, amountHalf);
+    balances[_recipient2] += amountHalf + remainder;
+    LogSplitter(owner, "Splitter: Add fund to ", _recipient1,
+                amountHalf + remainder);
     return true;
-    }
+  }
 
+  function isRecipientsValid(address _recipient1,
+                             address _recipient2) private returns(bool) {
+    if (_recipient1 == _recipient2)
+      return false;
+    if (owner == _recipient1)
+      return false;
+    if (owner == _recipient2)
+      return false;
+
+    if (recipientIndex.length == 0) {
+      recipientIndex.push(_recipient1);
+      recipientIndex.push(_recipient2);
+    } else {
+      if (balances[_recipient1] == 0)
+        return false;
+      if (balances[_recipient2] == 0)
+        return false;
+    }
+    LogLogger("LOG: Recipient is valid");
+    return true;
+  }
+
+  function payToRecipient(address _recipientAddress) public returns(bool) {
+    require(msg.sender == owner);
+    require(balances[_recipientAddress] != 0);
+    _recipientAddress.transfer(balances[_recipientAddress]);
+    LogSplitter(owner, "Splitter: Transfer fund to ", _recipientAddress,
+                balances[_recipientAddress]);
+    balances[_recipientAddress] = 0;
+    return true;
+  }
+
+  function killMe() public returns(bool) {
+    require(msg.sender == owner);
+    selfdestruct(owner);
+    return true;
+  }
+
+  function() public {}
 }

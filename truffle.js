@@ -7,10 +7,11 @@ module.exports = {
          port: 7545,
          network_id: "*" // Match any network id
     },
-    chainskill: {
+    development: {
       host: "localhost",
       port: 8545,
-      network_id: "*"
+      network_id: "*",
+      gas: 4700000
  }
 }
 

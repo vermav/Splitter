@@ -39,7 +39,7 @@ contract Splitter {
       return false;
     if (owner == _recipient2)
       return false;
-    if ((_recipient1 == 0x00) || (_recipient1 == 0x00))
+    if ((_recipient1 == address(0x00)) || (_recipient2 == address(0x00)))
       return false;
 
     return true;

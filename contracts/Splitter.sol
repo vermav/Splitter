@@ -4,11 +4,9 @@ contract Splitter {
 
   address public owner;
   mapping(address => uint) public balances;
-  address[] public recipientIndex;
 
-  event LogLogger(string data);
-  event LogSplitter(address initiater, string action, address receiver,
-                    uint amount);
+  event LogSplitFunds(address indexed sender, address indexed recipient1, address indexed recipient2,
+                      uint amount);
 
   function Splitter() public { owner = msg.sender; }
 
@@ -17,50 +15,40 @@ contract Splitter {
     require(owner == msg.sender);
     require(msg.value > 0);
     if (!isRecipientsValid(_recipient1, _recipient2)) {
-      LogLogger("LOG: Recipient invalid return");
-      revert(); // ISSUE: revert() failing
-      return false;
+      revert();
     }
 
     uint amountHalf = msg.value / 2;
     uint remainder = msg.value % 2;
 
     balances[_recipient1] += amountHalf;
-    LogSplitter(owner, "Splitter: Add fund to ", _recipient1, amountHalf);
     balances[_recipient2] += amountHalf + remainder;
-    LogSplitter(owner, "Splitter: Add fund to ", _recipient1,
-                amountHalf + remainder);
+
+    payToRecipient(_recipient1);
+    payToRecipient(_recipient2);
+
+    LogSplitFunds(msg.sender, _recipient1, _recipient2, msg.value);
     return true;
   }
 
   function isRecipientsValid(address _recipient1,
-                             address _recipient2) private returns(bool) {
+                             address _recipient2) private view returns(bool) {
     if (_recipient1 == _recipient2)
       return false;
     if (owner == _recipient1)
       return false;
     if (owner == _recipient2)
       return false;
+    if ((_recipient1 == 0x00) || (_recipient1 == 0x00))
+      return false;
 
-    if (recipientIndex.length == 0) {
-      recipientIndex.push(_recipient1);
-      recipientIndex.push(_recipient2);
-    } else {
-      if (balances[_recipient1] == 0)
-        return false;
-      if (balances[_recipient2] == 0)
-        return false;
-    }
-    LogLogger("LOG: Recipient is valid");
     return true;
   }
 
-  function payToRecipient(address _recipientAddress) public returns(bool) {
+  function payToRecipient(address _recipientAddress) private returns(bool) {
     require(msg.sender == owner);
     require(balances[_recipientAddress] != 0);
     _recipientAddress.transfer(balances[_recipientAddress]);
-    LogSplitter(owner, "Splitter: Transfer fund to ", _recipientAddress,
-                balances[_recipientAddress]);
     balances[_recipientAddress] = 0;
     return true;
   }

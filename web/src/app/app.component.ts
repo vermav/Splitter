@@ -57,7 +57,7 @@ export class AppComponent {
     console.log("Printting Instance ")
     console.log(this.Splitter)
 
-    const splitterInstance = this.Splitter.deployed();
+    const splitterInstance = await this.Splitter.deployed();
 
     
     console.log(splitterInstance)

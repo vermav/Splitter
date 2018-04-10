@@ -1,55 +1,75 @@
 import { Injectable } from '@angular/core'
-import { HttpClient } from '@angular/common/http'
-import * as contract from 'truffle-contract';
 import * as Web3 from 'web3'
+import * as  splitterArtifacts from '../../../build/contracts/Splitter.json'
+
+declare let window: any;
 
 @Injectable()
 export class Web3Service {
 
-    public web3: Web3;
-    public data: any
+    public web3: Web3
+    public splitterInstance: any
+    public accounts: any
+    private splitter: any
 
-    constructor(private httpClient: HttpClient){}
+    constructor() {}
 
-    initialise()
-    {
+    initialise() {
         // Checking if Web3 has been injected by the browser (Mist/MetaMask)
-        if (typeof this.web3 !== 'undefined') {
+        if (typeof window.web3 !== 'undefined') {
             // Use Mist/MetaMask's provider
-            this.web3 = new Web3(this.web3.currentProvider);
+            this.web3 = new Web3(this.web3.currentProvider)
         } else {
-            console.log('No web3? You should consider trying MetaMask!');
-
+            console.log('No web3? You should consider trying MetaMask!')
             // Hack to provide backwards compatibility for Truffle, which uses web3js 0.20.x
             Web3.providers.HttpProvider.prototype.sendAsync = Web3.providers.HttpProvider.prototype.send;
             // fallback - use your fallback strategy (local node / hosted node + in-dapp id mgmt / fail)
-            this.web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:8545'));
-            console.log(this.web3.eth.accounts);
+            this.web3 = new Web3(new Web3.providers.HttpProvider('http://localhost:7545'))
+            this.artifactsToContract()
         }
     }
 
-    async getArtifacts()
-    {
-        await this.httpClient.get('./assets/Splitter.json').subscribe(res =>{
-                this.data =res
-            }) 
+    private async artifactsToContract() {
+        this.accounts = await this.web3.eth.accounts 
+
+        // ABI description as JSON structure
+        const splitterObj = JSON.parse(JSON.stringify(splitterArtifacts))
+        const abi =  splitterObj.abi
+
+        // Smart contract EVM bytecode as hex
+        const code = splitterObj.bytecode
+
+        // Create Contract proxy class
+        this.splitter = this.web3.eth.contract(abi);
+
+        console.log("Deploying the contract");
+        this.splitterInstance = await this.splitter.new({ from: this.web3.eth.coinbase, gas: 1000000, data: code })
+
+        // Transaction has entered to geth memory pool
+        console.log("Your contract is being deployed in transaction at " + this.splitterInstance.transactionHash);
+
+        this.waitBlock()
     }
 
-    public async artifactsToContract(artifacts) {
-        console.log(artifacts)
+    private sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
 
-        if (!this.web3) {
-          console.log('Not web3')  
-          const delay = new Promise(resolve => setTimeout(resolve, 100));
-          await delay;
-          return await this.artifactsToContract(artifacts);
+    /*
+    We need to wait until any miner has included the transaction in a block 
+    to get the address of the contract
+    */
+    private async waitBlock() {
+        while (true) {
+            let receipt = await this.web3.eth.getTransactionReceipt(this.splitterInstance.transactionHash);
+            if (receipt && receipt.contractAddress) {
+                console.log("Your contract has been deployed at  " + receipt.contractAddress);
+                this.splitterInstance = this.splitter.at(receipt.contractAddress)
+                break
+            }
+            console.log("Waiting a mined block to include your contract... currently in block " + this.web3.eth.blockNumber)
+            await this.sleep(4000)
         }
-
-        console.log('web3')
-        console.log(this.web3.currentProvider)
-        const contractAbstraction = await contract(artifacts);
-        contractAbstraction.setProvider(this.web3.currentProvider);
-        return contractAbstraction;
-      }
+    }
 
 }

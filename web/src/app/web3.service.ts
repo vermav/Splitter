@@ -64,12 +64,19 @@ export class Web3Service {
             let receipt = await this.web3.eth.getTransactionReceipt(this.splitterInstance.transactionHash);
             if (receipt && receipt.contractAddress) {
                 console.log("Your contract has been deployed at  " + receipt.contractAddress);
-                this.splitterInstance = this.splitter.at(receipt.contractAddress)
+                this.splitterInstance = await this.splitter.at(receipt.contractAddress)
+                this.addWatchEvent()
                 break
             }
             console.log("Waiting a mined block to include your contract... currently in block " + this.web3.eth.blockNumber)
             await this.sleep(4000)
         }
+    }
+
+    async addWatchEvent(){
+        console.log("Settig watcher for log")
+        var ev = await this.splitterInstance.LogSplitFunds({from: this.web3.eth.accounts[0]},{fromBlock: 0, toBlock: 'latest'}).watch(function(error, event){ console.log(event);})
+        console.log(ev)
     }
 
 }

@@ -43,8 +43,12 @@ export class Web3Service {
         // Create Contract proxy class
         this.splitter = this.web3.eth.contract(abi);
 
+        let gasEstimate = await this.web3.eth.estimateGas({data: code});
+        console.log("gas " + gasEstimate)
+
+        console.log(this.accounts[0])
         console.log("Deploying the contract");
-        this.splitter.new({ from: this.accounts[0], gas: 4500000, data: code }, async (err, instance) => {
+        this.splitter.new({ from: this.accounts[0], gas: gasEstimate, gasPrice: "20000000000", data: code }, function (err, instance){
             if (!err) {
                 this.splitterInstance = instance
                 // Transaction has entered to geth memory pool

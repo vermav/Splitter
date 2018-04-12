@@ -12,7 +12,7 @@ export class Web3Service {
     public accounts: any
     private splitter: any
 
-    constructor() {}
+    constructor() { }
 
     initialise() {
         // Checking if Web3 has been injected by the browser (Mist/MetaMask)
@@ -30,11 +30,12 @@ export class Web3Service {
     }
 
     private async artifactsToContract() {
-        this.accounts = await this.web3.eth.accounts 
+        this.accounts = await this.web3.eth.accounts
+        console.log(this.accounts)
 
         // ABI description as JSON structure
         const splitterObj = JSON.parse(JSON.stringify(splitterArtifacts))
-        const abi =  splitterObj.abi
+        const abi = splitterObj.abi
 
         // Smart contract EVM bytecode as hex
         const code = splitterObj.bytecode
@@ -43,12 +44,17 @@ export class Web3Service {
         this.splitter = this.web3.eth.contract(abi);
 
         console.log("Deploying the contract");
-        this.splitterInstance = await this.splitter.new({ from: this.web3.eth.coinbase, gas: 1000000, data: code })
-
-        // Transaction has entered to geth memory pool
-        console.log("Your contract is being deployed in transaction at " + this.splitterInstance.transactionHash);
-
-        this.waitBlock()
+        this.splitter.new({ from: this.accounts[0], gas: 4500000, data: code }, async (err, instance) => {
+            if (!err) {
+                this.splitterInstance = instance
+                // Transaction has entered to geth memory pool
+                console.log("Your contract is being deployed in transaction at " + this.splitterInstance.transactionHash);
+                this.waitBlock()
+            }
+            else {
+                console.log('Deployment failed ')
+            }
+        })
     }
 
     private sleep(ms) {
@@ -73,10 +79,9 @@ export class Web3Service {
         }
     }
 
-    async addWatchEvent(){
+    async addWatchEvent() {
         console.log("Settig watcher for log")
-        var ev = await this.splitterInstance.LogSplitFunds({from: this.web3.eth.accounts[0]},{fromBlock: 0, toBlock: 'latest'}).watch(function(error, event){ console.log(event);})
-        console.log(ev)
+        this.splitterInstance.LogSplitFunds({}, { fromBlock: 0, toBlock: 'latest' }).watch(function (error, event) { console.log(event); })
     }
 
 }
